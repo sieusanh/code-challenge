@@ -1,0 +1,84 @@
+// Prisma schema for PostgreSQL database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model with authentication and RBAC
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // bcrypt hashed
+  name      String
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  resources Resource[]
+  sessions  Session[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// Role enum for RBAC
+enum Role {
+  ADMIN
+  USER
+  GUEST
+}
+
+// Session model for JWT token management
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+// Resource model (example CRUD entity)
+model Resource {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  status      Status   @default(ACTIVE)
+  category    String?
+  tags        String[] // Array of tags for filtering
+  metadata    Json?    // Flexible JSON field for additional data
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@map("resources")
+}
+
+// Status enum for resources
+enum Status {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
