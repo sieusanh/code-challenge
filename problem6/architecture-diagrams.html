@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Board API - Architecture Diagrams</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 40px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 8px;
+        }
+        .diagram-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .notes {
+            background: #e8f4fd;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .notes h3 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        .mermaid {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏗️ Score Board API Service - System Architecture Diagrams</h1>
+
+    <div class="notes">
+        <h3>📋 Architecture Overview</h3>
+        <p>This document presents a comprehensive architectural solution for a secure, scalable score board API service with real-time updates and anti-fraud measures.</p>
+    </div>
+
+    <h2>1. High-Level System Architecture</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+graph TB
+    subgraph "Client Layer"
+        WEB[Web Browser]
+        MOB[Mobile App]
+    end
+    
+    subgraph "Edge Layer"
+        CDN[CDN]
+        LB[Load Balancer]
+    end
+    
+    subgraph "API Gateway"
+        GW[API Gateway<br/>Rate Limiting & Routing]
+    end
+    
+    subgraph "Service Layer"
+        AUTH[Authentication<br/>Service]
+        VAL[Action Validation<br/>Service]
+        SCORE[Score Management<br/>Service]
+        RT[Real-time<br/>Notification Service]
+    end
+    
+    subgraph "Data Layer"
+        CACHE[(Redis Cache<br/>Top 10 Scores)]
+        DB[(Primary Database<br/>PostgreSQL)]
+        REPLICA[(Read Replicas)]
+        EVENT[(Event Store)]
+    end
+    
+    subgraph "Support Services"
+        MON[Monitoring &<br/>Logging]
+        FRAUD[Fraud Detection<br/>ML Service]
+    end
+    
+    WEB --> CDN
+    MOB --> CDN
+    CDN --> LB
+    LB --> GW
+    GW --> AUTH
+    GW --> VAL
+    GW --> SCORE
+    GW --> RT
+    
+    AUTH --> CACHE
+    VAL --> FRAUD
+    VAL --> EVENT
+    SCORE --> DB
+    SCORE --> CACHE
+    SCORE --> RT
+    RT --> WEB
+    RT --> MOB
+    
+    DB --> REPLICA
+    SCORE --> MON
+    VAL --> MON
+    FRAUD --> MON
+    
+    style WEB fill:#e1f5fe
+    style MOB fill:#e1f5fe
+    style GW fill:#fff3e0
+    style AUTH fill:#f3e5f5
+    style VAL fill:#f3e5f5
+    style SCORE fill:#f3e5f5
+    style RT fill:#f3e5f5
+    style CACHE fill:#ffebee
+    style DB fill:#ffebee
+    style REPLICA fill:#ffebee
+    style EVENT fill:#ffebee
+    style MON fill:#e8f5e9
+    style FRAUD fill:#e8f5e9
+        </div>
+    </div>
+
+    <h2>2. Data Flow Diagram - Score Update Process</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+graph LR
+    subgraph "Input"
+        USER[User Action]
+    end
+    
+    subgraph "Processing"
+        P1[1. Receive Action<br/>Request]
+        P2[2. Validate<br/>Authentication]
+        P3[3. Verify Action<br/>Signature]
+        P4[4. Check Rate<br/>Limits]
+        P5[5. Validate<br/>Nonce]
+        P6[6. Fraud<br/>Detection]
+        P7[7. Calculate<br/>Score Delta]
+        P8[8. Update<br/>Database]
+        P9[9. Update<br/>Cache]
+        P10[10. Broadcast<br/>Event]
+    end
+    
+    subgraph "Data Stores"
+        DS1[(User DB)]
+        DS2[(Action Log)]
+        DS3[(Score DB)]
+        DS4[(Cache)]
+        DS5[(Event Stream)]
+    end
+    
+    subgraph "Output"
+        RESP[API Response]
+        WS[WebSocket<br/>Notification]
+    end
+    
+    USER --> P1
+    P1 --> P2
+    P2 --> DS1
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+    P5 --> DS2
+    P5 --> P6
+    P6 --> P7
+    P7 --> P8
+    P8 --> DS3
+    P8 --> P9
+    P9 --> DS4
+    P9 --> P10
+    P10 --> DS5
+    P10 --> RESP
+    DS5 --> WS
+    
+    style USER fill:#bbdefb
+    style RESP fill:#c8e6c9
+    style WS fill:#c8e6c9
+    style DS1 fill:#ffe0b2
+    style DS2 fill:#ffe0b2
+    style DS3 fill:#ffe0b2
+    style DS4 fill:#ffe0b2
+    style DS5 fill:#ffe0b2
+        </div>
+    </div>
+
+    <h2>3. Sequence Diagram - Complete Action & Update Score</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+sequenceDiagram
+    participant U as User
+    participant C as Client App
+    participant G as API Gateway
+    participant A as Auth Service
+    participant V as Validation Service
+    participant F as Fraud Detection
+    participant S as Score Service
+    participant D as Database
+    participant R as Redis Cache
+    participant W as WebSocket Service
+    participant O as Other Users
+
+    U->>C: Complete Action
+    C->>C: Generate Signature
+    C->>G: POST /actions/complete<br/>{action, signature, nonce}
+    G->>G: Rate Limit Check
+    G->>A: Validate Token
+    A-->>G: Token Valid
+    G->>V: Validate Action
+    V->>V: Check Nonce
+    V->>V: Verify Signature
+    V->>V: Check Timestamp
+    V->>F: Analyze Pattern
+    F-->>V: Risk Score
+    alt Risk Acceptable
+        V-->>G: Action Valid
+        G->>S: Process Score Update
+        S->>D: Begin Transaction
+        D->>D: Lock User Record
+        S->>D: Update Score
+        S->>D: Log Action
+        S->>D: Add History
+        D-->>S: Commit Transaction
+        S->>R: Update Cache
+        S->>W: Publish Event
+        W->>O: Broadcast Update
+        S-->>G: Score Updated
+        G-->>C: 200 OK {new_score}
+        C-->>U: Display Success
+    else Risk High
+        V-->>G: Action Rejected
+        G-->>C: 403 Forbidden
+        C-->>U: Display Error
+    end
+        </div>
+    </div>
+
+    <h2>4. State Transition Diagram - Action Lifecycle</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> Initiated: User Completes Action
+    
+    Initiated --> Authenticating: Submit to Server
+    
+    Authenticating --> Authenticated: Valid Token
+    Authenticating --> Rejected: Invalid Token
+    
+    Authenticated --> Validating: Check Action
+    
+    Validating --> SignatureVerified: Valid Signature
+    Validating --> Rejected: Invalid Signature
+    
+    SignatureVerified --> NonceChecked: Unique Nonce
+    SignatureVerified --> Rejected: Duplicate Nonce
+    
+    NonceChecked --> RateLimitChecked: Within Limits
+    NonceChecked --> Throttled: Exceeded Limits
+    
+    RateLimitChecked --> FraudAnalyzed: Analyze Pattern
+    
+    FraudAnalyzed --> Approved: Low Risk
+    FraudAnalyzed --> Rejected: High Risk
+    
+    Approved --> Processing: Update Score
+    
+    Processing --> Updating: Lock Record
+    Updating --> Persisted: Save to DB
+    Persisted --> Cached: Update Cache
+    Cached --> Broadcasting: Notify Users
+    Broadcasting --> Completed: Success Response
+    
+    Rejected --> [*]: Return Error
+    Throttled --> [*]: Return 429
+    Completed --> [*]: Return Success
+    
+    note right of FraudAnalyzed
+        ML Model evaluates:
+        - Action frequency
+        - Score patterns
+        - Time intervals
+        - IP reputation
+    end note
+    
+    note left of Processing
+        Atomic Transaction:
+        - Update score
+        - Log action
+        - Save history
+    end note
+        </div>
+    </div>
+
+    <h2>5. Component Interaction Flowchart</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+flowchart TB
+    Start([User Action]) --> Auth{Authenticated?}
+    Auth -->|No| AuthError[Return 401]
+    Auth -->|Yes| Validate{Valid Request?}
+    
+    Validate -->|No| ValidationError[Return 400]
+    Validate -->|Yes| CheckNonce{Nonce Unique?}
+    
+    CheckNonce -->|No| NonceError[Return 409<br/>Duplicate Request]
+    CheckNonce -->|Yes| CheckRate{Rate Limit OK?}
+    
+    CheckRate -->|No| RateError[Return 429<br/>Too Many Requests]
+    CheckRate -->|Yes| CheckSig{Signature Valid?}
+    
+    CheckSig -->|No| SigError[Return 403<br/>Invalid Signature]
+    CheckSig -->|Yes| FraudCheck{Fraud Check}
+    
+    FraudCheck -->|Suspicious| FraudAlert[Log & Alert<br/>Return 403]
+    FraudCheck -->|Clean| CalcScore[Calculate Score Delta]
+    
+    CalcScore --> DBTrans[Start DB Transaction]
+    DBTrans --> LockUser[Lock User Record]
+    LockUser --> UpdateScore[Update Score]
+    UpdateScore --> LogAction[Log Action]
+    LogAction --> SaveHistory[Save History]
+    SaveHistory --> CommitTrans[Commit Transaction]
+    
+    CommitTrans -->|Success| UpdateCache[Update Redis Cache]
+    CommitTrans -->|Failed| Rollback[Rollback<br/>Return 500]
+    
+    UpdateCache --> CheckLeader{Top 10 Changed?}
+    CheckLeader -->|Yes| BroadcastAll[Broadcast to All Users]
+    CheckLeader -->|No| BroadcastUser[Notify User Only]
+    
+    BroadcastAll --> Success[Return 200 OK<br/>+ New Score]
+    BroadcastUser --> Success
+    
+    AuthError --> End([End])
+    ValidationError --> End
+    NonceError --> End
+    RateError --> End
+    SigError --> End
+    FraudAlert --> End
+    Rollback --> End
+    Success --> End
+    
+    style Start fill:#e1f5fe
+    style End fill:#ffebee
+    style Success fill:#c8e6c9
+    style FraudAlert fill:#ffccbc
+    style Rollback fill:#ffccbc
+        </div>
+    </div>
+
+    <h2>6. Real-time Update Flow</h2>
+    <div class="diagram-container">
+        <div class="mermaid">
+graph TB
+    subgraph "Score Update Event"
+        E1[Score Changed]
+    end
+    
+    subgraph "Event Processing"
+        E2[Event Published<br/>to Message Queue]
+        E3[WebSocket Service<br/>Receives Event]
+        E4{Leaderboard<br/>Changed?}
+    end
+    
+    subgraph "Client Notification"
+        E5[Get Connected<br/>Clients]
+        E6[Format Update<br/>Message]
+        E7[Broadcast via<br/>WebSocket]
+        E8[Send Individual<br/>Notification]
+    end
+    
+    subgraph "Client Handling"
+        E9[Client Receives<br/>Update]
+        E10[Update UI<br/>Display]
+        E11[Animate<br/>Changes]
+    end
+    
+    subgraph "Fallback"
+        F1[Polling Service]
+        F2[Check Cache<br/>Every 5s]
+        F3[Send Updates<br/>if Changed]
+    end
+    
+    E1 --> E2
+    E2 --> E3
+    E3 --> E4
+    E4 -->|Yes| E5
+    E4 -->|No| E8
+    E5 --> E6
+    E6 --> E7
+    E7 --> E9
+    E8 --> E9
+    E9 --> E10
+    E10 --> E11
+    
+    E3 -.->|WebSocket Unavailable| F1
+    F1 --> F2
+    F2 --> F3
+    F3 --> E9
+    
+    style E1 fill:#bbdefb
+    style E11 fill:#c8e6c9
+    style F1 fill:#fff9c4
+    style F2 fill:#fff9c4
+    style F3 fill:#fff9c4
+        </div>
+    </div>
+
+    <div class="notes">
+        <h3>🔒 Security Implementation Notes</h3>
+        <ul>
+            <li><strong>HMAC Signatures:</strong> Each action request includes HMAC-SHA256 signature using a shared secret between client and server</li>
+            <li><strong>Nonce Implementation:</strong> UUID v4 tokens stored in Redis with 24-hour TTL to prevent replay attacks</li>
+            <li><strong>Rate Limiting:</strong> Sliding window algorithm with configurable limits per user and IP</li>
+            <li><strong>Fraud Detection:</strong> ML model trained on historical data to identify abnormal scoring patterns</li>
+            <li><strong>Audit Trail:</strong> Every action logged with full context for forensic analysis</li>
+        </ul>
+    </div>
+
+    <div class="notes">
+        <h3>⚡ Performance Optimization Notes</h3>
+        <ul>
+            <li><strong>Caching Strategy:</strong> Top 10 scores cached in Redis with 1-second TTL, invalidated on any top-10 change</li>
+            <li><strong>Database Optimization:</strong> Proper indexing on frequently queried columns, partitioning for historical data</li>
+            <li><strong>Connection Pooling:</strong> Maintain persistent connections to reduce latency</li>
+            <li><strong>Async Processing:</strong> Non-critical operations (logging, analytics) processed asynchronously</li>
+            <li><strong>CDN Usage:</strong> Static assets served from edge locations</li>
+        </ul>
+    </div>
+
+    <div class="notes">
+        <h3>📈 Scalability Considerations</h3>
+        <ul>
+            <li><strong>Horizontal Scaling:</strong> Stateless services allow adding instances based on load</li>
+            <li><strong>Database Sharding:</strong> User data can be sharded by user_id for large-scale deployments</li>
+            <li><strong>Message Queue:</strong> Decouple components using pub/sub for better scalability</li>
+            <li><strong>Load Balancing:</strong> Distribute traffic across multiple service instances</li>
+            <li><strong>Auto-scaling:</strong> Configure based on CPU, memory, and request rate metrics</li>
+        </ul>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35,
+                mirrorActors: true
+            }
+        });
+    </script>
+</body>
+</html>
